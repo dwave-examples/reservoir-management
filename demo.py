@@ -1,0 +1,218 @@
+# Copyright 2021 D-Wave Systems Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from dwave.system import LeapHybridSampler
+from dimod import BinaryQuadraticModel
+import numpy as np
+
+import matplotlib
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib import animation
+except ImportError:
+    matplotlib.use("agg")
+    import matplotlib.pyplot as plt
+    from matplotlib import animation
+
+def build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max):
+
+    x = []
+
+    # Build a variable for each pump
+    for p in range(num_pumps):
+        x.append(['P'+str(p)+'_'+str(time[t]) for t in time])
+
+    # Initialize BQM
+    bqm = BinaryQuadraticModel('BINARY')
+
+    # Objective
+    gamma = 10000
+    for p in range(num_pumps):
+        for t in time:
+            bqm.add_variable(x[p][t], gamma*power[p]*costs[t]/1000)
+
+    # Constraint 1: Every pump runs at least once per day
+    for p in range(num_pumps):
+        c1 = [(x[p][t], 1) for t in time]
+        bqm.add_linear_inequality_constraint(c1,
+                lb = 1,
+                ub = num_pumps,
+                lagrange_multiplier = 1,
+                label = 'c1_pump_'+pumps[p])
+
+    # Constraint 2: At most num_pumps-1 pumps per time slot
+    for t in time:
+        c2 = [(x[p][t], 1) for p in range(num_pumps)]
+        bqm.add_linear_inequality_constraint(c2,
+                constant = -num_pumps+1,
+                lagrange_multiplier = 1,
+                label = 'c2_time_'+str(t))
+
+    # Constraint 3: Water doesn't go below v_min or above v_max
+    for t in time:
+        c4 = [(x[p][k], int(flow[p]*100)) for p in range(num_pumps) for k in range(t+1)]
+        const = v_init - sum(demand[0:t+1])
+        bqm.add_linear_inequality_constraint(c4,
+                constant = int(const*100),
+                lb = v_min*100,
+                ub = v_max*100,
+                lagrange_multiplier = 0.01,
+                label = 'c3_time_'+str(t))
+    
+    return bqm, x
+
+def process_sample(sample, x, pumps, time, power, costs, v_init, verbose=True):
+    
+    total_flow = 0
+    total_cost = 0
+    num_pumps = len(pumps)
+
+    if verbose:
+        timeslots = "\n"
+        for t in time:
+            timeslots += "\t"+str(t+1)
+
+    if verbose:
+        print(timeslots)
+    for p in range(num_pumps):
+        printout = pumps[p]
+        for t in time:
+            printout += "\t" + str(sample[x[p][t]])
+            total_flow += sample[x[p][t]]*flow[p]
+            total_cost += sample[x[p][t]]*costs[t]*power[p]/1000
+        if verbose:
+            print(printout)
+
+    if verbose:
+        print("\n")
+    printout = "Res:\t"
+    reservoir = [v_init]
+    pump_flow_schedule = []
+    for t in time:
+        hourly_flow = reservoir[-1]
+        for p in range(num_pumps):
+            hourly_flow += sample[x[p][t]]*flow[p]
+        reservoir.append(hourly_flow-demand[t])
+        pump_flow_schedule.append(hourly_flow - reservoir[-2])
+        printout += str(int(reservoir[-1]))+"\t"
+    if verbose:
+        print(printout)
+
+    print("\nTotal flow:\t", total_flow)
+    print("Total cost:\t", total_cost, "\n")
+
+    return pump_flow_schedule, reservoir
+
+def visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flow_schedule, reservoir):
+
+    # Initialize plot
+    fig, ax = plt.subplots()
+
+    # Set up plot parameters (static)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, v_min/2+v_max)
+    ax.xaxis.set_visible(False)
+    ax.set_yticks([v_min, v_max])
+    ax.set_yticklabels(('','Max'))
+    ax.set_title("Reservoir Water Level")
+
+    # Plot max/min water capacity lines (static)
+    ax.plot(list(range(0, 5)), [v_max]*(5), color='#222222', label="Max capacity", linewidth=1.0)
+    ax.plot(list(range(0, 5)), [v_min]*(5), color='#FFA143', label="Min capacity", linewidth=1.5)
+
+    # Plot water as a blue bar graph (dynamic)
+    barcollection = plt.bar(0.5, v_init, width=1.0, color='#2a7de1', align='center')
+
+    # Blue line across top of the water (dynamic)
+    water_line, = ax.plot([], [], 'b-')
+    x_ax_vals = np.linspace(0, 1, 200)
+
+    # Put list of pumps on plot (static)
+    pumps_used = []
+    for i in range(num_pumps):
+        pumps_used.append(plt.figtext(0.03, 0.11+0.035*i, "Pump "+str(i+1), fontdict=None, color='#DDDDDD', fontsize='small'))
+    
+    # Put timeslot on plot (dynamic)
+    time_label = ax.text(0.75, 1600, '')
+
+    # Put cost for timeslot on plot (dynamic)
+    cost_label = plt.figtext(0.45, 0.03, '', fontdict=None, color='k')
+
+    def animate(i):
+        
+        # Compute minutes/hour for smooth animation over time
+        m = i%30
+        t = int((i-m)/30)
+
+        # Compute flow/demand per minute for smooth animation over time
+        pump_min_flow = m*2*pump_flow_schedule[t]/60
+        demand_min = m*2*demand[t]/60
+
+        # Adjust water level for the given min/hour
+        delta = reservoir[t]+pump_min_flow-demand_min
+        y = [delta]*(len(x_ax_vals))
+        for i, b in enumerate(barcollection):
+            b.set_height(delta)
+        water_line.set_data(x_ax_vals, y)
+
+        # Adjust time/cost/pumps used text on plot for the given hour
+        time_label.set_text('Time: '+str(t+1))
+        cost = 0
+        for p in range(num_pumps):
+            if sample[x[p][t]] == 1:
+                pumps_used[p].set_color('#008c82')
+                cost += sample[x[p][t]]*costs[t]*power[p]/1000
+            else:
+                pumps_used[p].set_color('#DDDDDD')
+
+        cost_label.set_text("Hourly Cost: "+str(cost))
+
+        return water_line,
+
+    # Build movie visualization
+    anim = animation.FuncAnimation(fig, animate, repeat=False, frames=24*30, interval=2, blit=True)
+    mywriter = animation.FFMpegWriter(fps=30)
+    anim.save('reservoir.mp4',writer=mywriter)
+
+    plt.show()
+
+if __name__ == '__main__':
+
+    # Set up scenario / optimal cost: 81.965
+    num_pumps = 7
+    pumps = ['P'+str(p) for p in range(num_pumps)]
+    time = list(range(24))
+    power = [15, 37, 33, 33, 22, 33, 22]
+    costs = [169]*7 + [283]*6 + [169]*3 + [336]*5 + [169]*3
+    flow = [75, 133, 157, 176, 59, 69, 120]
+    demand = [44.62, 31.27, 26.22, 27.51, 31.50, 46.18, 69.47, 100.36, 131.85, 
+                148.51, 149.89, 142.21, 132.09, 129.29, 124.06, 114.68, 109.33, 
+                115.76, 126.95, 131.48, 138.86, 131.91, 111.53, 70.43]
+    v_init = 550
+    v_min = 523.5
+    v_max = 1500
+
+    # Build BQM
+    bqm, x = build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max)
+
+    # Run on hybrid sampler
+    sampler = LeapHybridSampler()
+    sampleset = sampler.sample(bqm)
+    sample = sampleset.first.sample
+
+    # Process-lowest energy solution
+    pump_flow_schedule, reservoir = process_sample(sample, x, pumps, time, power, costs, v_init)
+
+    # Visualize result
+    visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flow_schedule, reservoir)
