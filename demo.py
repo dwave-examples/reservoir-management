@@ -25,7 +25,7 @@ except ImportError:
     import matplotlib.pyplot as plt
     from matplotlib import animation
 
-def build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max):
+def build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max, c3_gamma):
     """Build bqm that models our problem scenario. 
     Args:
         num_pumps (int): Number of pumps available
@@ -83,7 +83,7 @@ def build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max)
                 constant = int(const*100),
                 lb = v_min*100,
                 ub = v_max*100,
-                lagrange_multiplier = 0.00052,
+                lagrange_multiplier = c3_gamma,
                 label = 'c3_time_'+str(t))
     
     return bqm, x
@@ -201,8 +201,6 @@ def visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flo
     cost_label = plt.figtext(0.45, 0.03, '', fontdict=None, color='k')
 
     def animate(i):
-        
-        # smoothing_factor = 4  # Granularity factor for animation
 
         # Compute minutes/hour for smooth animation over time
         m = i%(60/smoothing_factor)
@@ -239,12 +237,11 @@ def visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flo
     mywriter = animation.FFMpegWriter(fps=30)
     anim.save('reservoir.mp4',writer=mywriter)
 
-    plt.show()
     print("\nAnimation saved as reservoir.mp4")
 
 if __name__ == '__main__':
 
-    # Set up scenario / optimal cost: 81.965
+    # Set up scenario
     num_pumps = 7
     pumps = ['P'+str(p) for p in range(num_pumps)]
     time = list(range(24))
@@ -257,9 +254,10 @@ if __name__ == '__main__':
     v_init = 550
     v_min = 523.5
     v_max = 1500
+    c3_gamma = 0.00052
 
     # Build BQM
-    bqm, x = build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max)
+    bqm, x = build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max, c3_gamma)
     print(bqm.variables)
 
     # Run on hybrid sampler

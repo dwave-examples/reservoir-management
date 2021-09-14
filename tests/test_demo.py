@@ -34,6 +34,7 @@ class TestSmoke(unittest.TestCase):
 
 class TestDemo(unittest.TestCase):
     def test_num_vars(self):
+        """Test BQM characteristics for demo instance"""
 
         num_pumps = 7
         time = list(range(24))
@@ -45,9 +46,10 @@ class TestDemo(unittest.TestCase):
                     115.76, 126.95, 131.48, 138.86, 131.91, 111.53, 70.43]
         v_init = 550
         v_min = 523.5
-        v_max = 1500    
+        v_max = 1500 
+        c3_gamma = 0.00052   
 
-        bqm, _ = demo.build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max)
+        bqm, _ = demo.build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max, c3_gamma)
         bin_vars = num_pumps*len(time)
         c1_vars = num_pumps*math.ceil(math.log(num_pumps - 1, 2))
         c2_vars = len(time)*math.ceil(math.log(num_pumps-1, 2))
@@ -56,6 +58,7 @@ class TestDemo(unittest.TestCase):
         self.assertEqual(bqm.num_variables, bin_vars+c1_vars+c2_vars+c3_vars)
     
     def test_small_case(self):
+        """Test solution quality of small case with exact solver"""
 
         num_pumps = 2
         time = list(range(2))
@@ -64,10 +67,11 @@ class TestDemo(unittest.TestCase):
         flow = [2, 4]
         demand = [2, 2]
         v_init = 1
-        v_min = 0
-        v_max = 2
+        v_min = 0.5
+        v_max = 1.5
+        c3_gamma = 0.01
 
-        bqm, x = demo.build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max)
+        bqm, x = demo.build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max, c3_gamma)
 
         sampler = dimod.ExactSolver()
         sampleset = sampler.sample(bqm)
