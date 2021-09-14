@@ -1,0 +1,2 @@
+dwave-ocean-sdk>=3.4.1
+matplotlib
