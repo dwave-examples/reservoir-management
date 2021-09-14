@@ -26,6 +26,22 @@ except ImportError:
     from matplotlib import animation
 
 def build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max):
+    """Build bqm that models our problem scenario. 
+    Args:
+        num_pumps (int): Number of pumps available
+        time (list of ints): List of time slots
+        power (list of floats): power[i] = power required for pump i
+        costs (list of floats): costs[i] = unit power cost at time i
+        flow (list of floats): flow[i] = flow output for pump i
+        demand (list of floats): demand[i] = flow demand at time i
+        v_init (float): Initial reservoir water level
+        v_min (float): Minimum allowed reservoir water level
+        v_max (float): Maximum allowed reservoir water level
+    
+    Returns:
+        bqm (BinaryQuadraticModel): QUBO model for the input scenario
+        x (list of strings): List of variable names in BQM
+    """
 
     x = []
 
@@ -49,7 +65,7 @@ def build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max)
                 lb = 1,
                 ub = num_pumps,
                 lagrange_multiplier = 1,
-                label = 'c1_pump_'+pumps[p])
+                label = 'c1_pump_'+str(p))
 
     # Constraint 2: At most num_pumps-1 pumps per time slot
     for t in time:
@@ -67,12 +83,30 @@ def build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max)
                 constant = int(const*100),
                 lb = v_min*100,
                 ub = v_max*100,
-                lagrange_multiplier = 0.01,
+                lagrange_multiplier = 0.00052,
                 label = 'c3_time_'+str(t))
     
     return bqm, x
 
-def process_sample(sample, x, pumps, time, power, costs, v_init, verbose=True):
+def process_sample(sample, x, pumps, time, power, flow, costs, demand, v_init, verbose=True):
+    """Process sample returned when submitting BQM to solver. 
+    Args:
+        sample (SampleSet): Sample to process
+        x (list of strings): List of variable names in BQM
+        pumps (list of ints): List of pumps available
+        time (list of ints): List of time slots
+        power (list of floats): power[i] = power required for pump i
+        flow (list of floats): flow[i] = flow output for pump i
+        costs (list of floats): costs[i] = unit power cost at time i
+        demand (list of floats): demand[i] = flow demand at time i
+        v_init (float): Initial reservoir water level
+        verbose (bool): Trigger to display command-line output
+    
+    Returns:
+        pump_flow_schedule (list of floats):
+            pump_flow_schedule[i] = amount of input flow from pumps at time i
+        reservoir (list of floats): reservoir[i] = reservoir level at time i        
+    """
     
     total_flow = 0
     total_cost = 0
@@ -86,7 +120,7 @@ def process_sample(sample, x, pumps, time, power, costs, v_init, verbose=True):
     if verbose:
         print(timeslots)
     for p in range(num_pumps):
-        printout = pumps[p]
+        printout = str(pumps[p])
         for t in time:
             printout += "\t" + str(sample[x[p][t]])
             total_flow += sample[x[p][t]]*flow[p]
@@ -115,6 +149,23 @@ def process_sample(sample, x, pumps, time, power, costs, v_init, verbose=True):
     return pump_flow_schedule, reservoir
 
 def visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flow_schedule, reservoir):
+    """Visualize solution as mp4 animation saved to file reservoir.mp4.
+    Args:
+        sample (SampleSet): Sample to process
+        x (list of strings): List of variable names in BQM
+        v_min (float): Minimum allowed reservoir water level
+        v_max (float): Maximum allowed reservoir water level
+        v_init (float): Initial reservoir water level
+        num_pumps (int): Number of pumps available
+        costs (list of floats): costs[i] = unit power cost at time i
+        power (list of floats): power[i] = power required for pump i
+        pump_flow_schedule (list of floats):
+            pump_flow_schedule[i] = amount of input flow from pumps at time i
+        reservoir (list of floats): reservoir[i] = reservoir level at time i
+    
+    Returns:
+       None.                
+    """
 
     # Initialize plot
     fig, ax = plt.subplots()
@@ -151,13 +202,15 @@ def visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flo
 
     def animate(i):
         
+        # smoothing_factor = 4  # Granularity factor for animation
+
         # Compute minutes/hour for smooth animation over time
-        m = i%30
-        t = int((i-m)/30)
+        m = i%(60/smoothing_factor)
+        t = int((i-m)/(60/smoothing_factor))
 
         # Compute flow/demand per minute for smooth animation over time
-        pump_min_flow = m*2*pump_flow_schedule[t]/60
-        demand_min = m*2*demand[t]/60
+        pump_min_flow = m*smoothing_factor*pump_flow_schedule[t]/60
+        demand_min = m*smoothing_factor*demand[t]/60
 
         # Adjust water level for the given min/hour
         delta = reservoir[t]+pump_min_flow-demand_min
@@ -181,11 +234,13 @@ def visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flo
         return water_line,
 
     # Build movie visualization
-    anim = animation.FuncAnimation(fig, animate, repeat=False, frames=24*30, interval=2, blit=True)
+    smoothing_factor = 4  # Granularity factor for animation
+    anim = animation.FuncAnimation(fig, animate, repeat=False, frames=int(24*(60/smoothing_factor)), interval=2, blit=True)
     mywriter = animation.FFMpegWriter(fps=30)
     anim.save('reservoir.mp4',writer=mywriter)
 
     plt.show()
+    print("\nAnimation saved as reservoir.mp4")
 
 if __name__ == '__main__':
 
@@ -205,6 +260,7 @@ if __name__ == '__main__':
 
     # Build BQM
     bqm, x = build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max)
+    print(bqm.variables)
 
     # Run on hybrid sampler
     sampler = LeapHybridSampler()
@@ -212,7 +268,7 @@ if __name__ == '__main__':
     sample = sampleset.first.sample
 
     # Process-lowest energy solution
-    pump_flow_schedule, reservoir = process_sample(sample, x, pumps, time, power, costs, v_init)
+    pump_flow_schedule, reservoir = process_sample(sample, x, pumps, time, power, flow, costs, demand, v_init)
 
     # Visualize result
     visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flow_schedule, reservoir)
