@@ -258,7 +258,6 @@ if __name__ == '__main__':
 
     # Build BQM
     bqm, x = build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max, c3_gamma)
-    print(bqm.variables)
 
     # Run on hybrid sampler
     sampler = LeapHybridSampler()
