@@ -19,11 +19,10 @@ import numpy as np
 import matplotlib
 try:
     import matplotlib.pyplot as plt
-    from matplotlib import animation
 except ImportError:
     matplotlib.use("agg")
     import matplotlib.pyplot as plt
-    from matplotlib import animation
+from matplotlib import animation
 
 def build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max, c3_gamma):
     """Build bqm that models our problem scenario. 
@@ -71,7 +70,7 @@ def build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max,
     for t in time:
         c2 = [(x[p][t], 1) for p in range(num_pumps)]
         bqm.add_linear_inequality_constraint(c2,
-                constant = -num_pumps+1,
+                constant = -num_pumps + 1,
                 lagrange_multiplier = 1,
                 label = 'c2_time_'+str(t))
 
@@ -81,8 +80,8 @@ def build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max,
         const = v_init - sum(demand[0:t+1])
         bqm.add_linear_inequality_constraint(c4,
                 constant = int(const*100),
-                lb = v_min*100,
-                ub = v_max*100,
+                lb = v_min * 100,
+                ub = v_max * 100,
                 lagrange_multiplier = c3_gamma,
                 label = 'c3_time_'+str(t))
     
@@ -115,33 +114,30 @@ def process_sample(sample, x, pumps, time, power, flow, costs, demand, v_init, v
     if verbose:
         timeslots = "\n"
         for t in time:
-            timeslots += "\t"+str(t+1)
-
-    if verbose:
+            timeslots += "\t" + str(t+1)
         print(timeslots)
+
     for p in range(num_pumps):
         printout = str(pumps[p])
         for t in time:
             printout += "\t" + str(sample[x[p][t]])
-            total_flow += sample[x[p][t]]*flow[p]
-            total_cost += sample[x[p][t]]*costs[t]*power[p]/1000
+            total_flow += sample[x[p][t]] * flow[p]
+            total_cost += sample[x[p][t]] * costs[t] * power[p] / 1000
         if verbose:
             print(printout)
 
-    if verbose:
-        print("\n")
-    printout = "Res:\t"
+    printout = "Level:\t"
     reservoir = [v_init]
     pump_flow_schedule = []
     for t in time:
         hourly_flow = reservoir[-1]
         for p in range(num_pumps):
-            hourly_flow += sample[x[p][t]]*flow[p]
+            hourly_flow += sample[x[p][t]] * flow[p]
         reservoir.append(hourly_flow-demand[t])
         pump_flow_schedule.append(hourly_flow - reservoir[-2])
-        printout += str(int(reservoir[-1]))+"\t"
+        printout += str(int(reservoir[-1])) + "\t"
     if verbose:
-        print(printout)
+        print("\n" + printout)
 
     print("\nTotal flow:\t", total_flow)
     print("Total cost:\t", total_cost, "\n")
@@ -203,16 +199,16 @@ def visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flo
     def animate(i):
 
         # Compute minutes/hour for smooth animation over time
-        m = i%(60/smoothing_factor)
-        t = int((i-m)/(60/smoothing_factor))
+        m = i % (60/smoothing_factor)
+        t = int( (i-m) / (60/smoothing_factor) )
 
         # Compute flow/demand per minute for smooth animation over time
-        pump_min_flow = m*smoothing_factor*pump_flow_schedule[t]/60
-        demand_min = m*smoothing_factor*demand[t]/60
+        pump_min_flow = m * smoothing_factor * pump_flow_schedule[t] / 60
+        demand_min = m * smoothing_factor * demand[t] / 60
 
         # Adjust water level for the given min/hour
-        delta = reservoir[t]+pump_min_flow-demand_min
-        y = [delta]*(len(x_ax_vals))
+        delta = reservoir[t] + pump_min_flow - demand_min
+        y = [delta] * (len(x_ax_vals))
         for i, b in enumerate(barcollection):
             b.set_height(delta)
         water_line.set_data(x_ax_vals, y)
@@ -223,7 +219,7 @@ def visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flo
         for p in range(num_pumps):
             if sample[x[p][t]] == 1:
                 pumps_used[p].set_color('#008c82')
-                cost += sample[x[p][t]]*costs[t]*power[p]/1000
+                cost += sample[x[p][t]] * costs[t] * power[p] / 1000
             else:
                 pumps_used[p].set_color('#DDDDDD')
 
@@ -234,16 +230,16 @@ def visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flo
     # Build movie visualization
     smoothing_factor = 4  # Granularity factor for animation
     anim = animation.FuncAnimation(fig, animate, repeat=False, frames=int(24*(60/smoothing_factor)), interval=2, blit=True)
-    mywriter = animation.FFMpegWriter(fps=30)
-    anim.save('reservoir.mp4',writer=mywriter)
+    mywriter = animation.HTMLWriter(fps=30)
+    anim.save('reservoir.html',writer=mywriter)
 
-    print("\nAnimation saved as reservoir.mp4")
+    print("\nAnimation saved as reservoir.html.")
 
 if __name__ == '__main__':
 
     # Set up scenario
     num_pumps = 7
-    pumps = ['P'+str(p) for p in range(num_pumps)]
+    pumps = ['P'+str(p+1) for p in range(num_pumps)]
     time = list(range(24))
     power = [15, 37, 33, 33, 22, 33, 22]
     costs = [169]*7 + [283]*6 + [169]*3 + [336]*5 + [169]*3
