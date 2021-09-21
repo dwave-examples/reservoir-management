@@ -38,20 +38,36 @@ over all time intervals is displayed.
 
 The general objective for this problem is to minimize cost. Cost is determined
 by which pumps are used in each time slot. To compute the cost for a given time
-slot, we must take into consideration the amount of power required for the
-pumps in use as well as the cost of power at the given time. Power rates
-fluctuate at different times of day, meaning that the cost to operate a pump
-also varies at different times of day.
+slot, we must take into consideration the amount of power required for each
+pump in use as well as the cost of power at the given time. The cost per unit
+of power changes at different times of day, meaning that the cost to operate a
+pump also varies at different times of day. We can formulate this objective
+mathematically as:
+
+min &Sigma;<sub>t</sub> &Sigma;<sub>p</sub> c<sub>t,p</sub> x<sub>t,p</sub>
+
+where the summations are over time slots t and pumps p, and c<sub>(t,p)</sub> is the cost
+to operate pump p at time slot t.
 
 ### Constraints
 
 This problem consists of three groups of constraints.
 
-1. Each pump must be used at least once.
+1. Each pump must be used at least once. Mathematically, this constraint can
+be written as &Sigma;<sub>t</sub> x<sub>t,p</sub> &ge; 1, for each pump p.
 
 2. Each time slot must have at least one unused pump as a backup.
+Mathematically, this constraint can be written as &Sigma;<sub>p</sub> x<sub>t,p</sub> &le; |P| - 1, for each
+time slot t.
 
-3. At each time slot, the water level must be within allowable levels.
+3. At each time slot, the water level must be within allowable levels. To more
+clearly represent this constraint mathematically, we introduce a placeholder
+variable v<sub>i</sub> that represents the reservoir water level at time i. For the first
+time slot, we define v<sub>1</sub> = &Sigma;<sub>p</sub> f<sub>p</sub>x<sub>1,p</sub> + V<sub>init</sub> - d<sub>1</sub>, where f<sub>p</sub> is the flow of pump
+p, V<sub>init</sub> is the initial reservoir water level, and d<sub>1</sub> is the consumer demand
+in time slot 1. For time slots after time slot 1, we define
+v<sub>i</sub> = &Sigma;<sub>p</sub> f<sub>p</sub>x<sub>i,p</sub> + v<sub>i-1</sub> - d<sub>i</sub>. At any given time slot t, we must enforce the
+constraint that V<sub>min</sub> &le; v<sub>t</sub> &le; V<sub>max</sub>.
 
 For the full mathematical formulation of these constraints, please see the
 paper cited in the References section.
