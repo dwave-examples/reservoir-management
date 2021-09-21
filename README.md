@@ -64,11 +64,10 @@ time slot t.
 3. At each time slot, the water level must be within allowable levels. To more
 clearly represent this constraint mathematically, we introduce a placeholder
 variable v<sub>i</sub> that represents the reservoir water level at time i. For the first
-time slot, we define v<sub>1</sub> = &Sigma;<sub>p</sub> f<sub>p</sub>x<sub>1,p</sub> + V<sub>init</sub> - d<sub>1</sub>, where f<sub>p</sub> is the flow of pump
-p, V<sub>init</sub> is the initial reservoir water level, and d<sub>1</sub> is the consumer demand
-in time slot 1. For time slots after time slot 1, we define
-v<sub>i</sub> = &Sigma;<sub>p</sub> f<sub>p</sub>x<sub>i,p</sub> + v<sub>i-1</sub> - d<sub>i</sub>.
-At any given time slot t, we must enforce the
+time slot, we define v<sub>1</sub> = &Sigma;<sub>p</sub> f<sub>p</sub>x<sub>1,p</sub> + V<sub>init</sub> - d<sub>1</sub>,  where f<sub>p</sub> is the flow of
+pump p, V<sub>init</sub> is the initial reservoir water level, and d<sub>1</sub> is the consumer
+demand in time slot 1. For time slots after time slot 1, we define
+v<sub>i</sub> = &Sigma;<sub>p</sub> f<sub>p</sub>x<sub>i,p</sub> + v<sub>i-1</sub> - d<sub>i</sub>. At any given time slot t, we must enforce the
 constraint that V<sub>min</sub> &le; v<sub>t</sub> &le; V<sub>max</sub>.
 
 For the full mathematical formulation of these constraints, please see the
