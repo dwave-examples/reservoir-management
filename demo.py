@@ -107,16 +107,19 @@ def process_sample(sample, x, pumps, time, power, flow, costs, demand, v_init, v
         reservoir (list of floats): reservoir[i] = reservoir level at time i        
     """
     
+    # Initialize variables
     total_flow = 0
     total_cost = 0
     num_pumps = len(pumps)
 
+    # Print out time slots header
     if verbose:
         timeslots = "\n"
         for t in time:
             timeslots += "\t" + str(t+1)
         print(timeslots)
 
+    # Generate printout for each pump's usage
     for p in range(num_pumps):
         printout = str(pumps[p])
         for t in time:
@@ -126,6 +129,7 @@ def process_sample(sample, x, pumps, time, power, flow, costs, demand, v_init, v
         if verbose:
             print(printout)
 
+    # Generate printout for general water levels
     printout = "Level:\t"
     reservoir = [v_init]
     pump_flow_schedule = []
@@ -139,6 +143,7 @@ def process_sample(sample, x, pumps, time, power, flow, costs, demand, v_init, v
     if verbose:
         print("\n" + printout)
 
+    # Print out total flow and cost information
     print("\nTotal flow:\t", total_flow)
     print("Total cost:\t", total_cost, "\n")
 
