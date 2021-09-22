@@ -28,7 +28,7 @@ def build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max,
     """Build bqm that models our problem scenario. 
     Args:
         num_pumps (int): Number of pumps available
-        time (list of ints): List of time slots
+        time (list): List of time slots
         power (list of floats): power[i] = power required for pump i
         costs (list of floats): costs[i] = unit power cost at time i
         flow (list of floats): flow[i] = flow output for pump i
@@ -36,46 +36,47 @@ def build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max,
         v_init (float): Initial reservoir water level
         v_min (float): Minimum allowed reservoir water level
         v_max (float): Maximum allowed reservoir water level
+        c3_gamma (float): Lagrange multiplier for constraint 3
     
     Returns:
         bqm (BinaryQuadraticModel): QUBO model for the input scenario
         x (list of strings): List of variable names in BQM
     """
 
-    x = []
+    print("\nBuilding binary quadratic model...")
 
     # Build a variable for each pump
-    for p in range(num_pumps):
-        x.append(['P'+str(p)+'_'+str(time[t]) for t in time])
+    x = [['P' + str(p) + '_' + str(time[t]) for t in time] for p in range(num_pumps)]
 
     # Initialize BQM
     bqm = BinaryQuadraticModel('BINARY')
 
     # Objective
-    gamma = 10000
+    gamma = 10000 # Lagrange parameter: tune for performance in different scenarios
     for p in range(num_pumps):
-        for t in time:
+        for t in range(len(time)):
             bqm.add_variable(x[p][t], gamma*power[p]*costs[t]/1000)
 
     # Constraint 1: Every pump runs at least once per day
     for p in range(num_pumps):
-        c1 = [(x[p][t], 1) for t in time]
+        c1 = [(x[p][t], 1) for t in range(len(time))]
         bqm.add_linear_inequality_constraint(c1,
                 lb = 1,
-                ub = num_pumps,
+                ub = len(time),
                 lagrange_multiplier = 1,
                 label = 'c1_pump_'+str(p))
 
     # Constraint 2: At most num_pumps-1 pumps per time slot
-    for t in time:
+    for t in range(len(time)):
         c2 = [(x[p][t], 1) for p in range(num_pumps)]
         bqm.add_linear_inequality_constraint(c2,
                 constant = -num_pumps + 1,
                 lagrange_multiplier = 1,
-                label = 'c2_time_'+str(t))
+                label = 'c2_time_'+str(time[t]))
 
     # Constraint 3: Water doesn't go below v_min or above v_max
-    for t in time:
+    ## Note: Multiplication by 100 is to clear fractional coefficients in inequality
+    for t in range(len(time)):
         c4 = [(x[p][k], int(flow[p]*100)) for p in range(num_pumps) for k in range(t+1)]
         const = v_init - sum(demand[0:t+1])
         bqm.add_linear_inequality_constraint(c4,
@@ -83,7 +84,7 @@ def build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max,
                 lb = v_min * 100,
                 ub = v_max * 100,
                 lagrange_multiplier = c3_gamma,
-                label = 'c3_time_'+str(t))
+                label = 'c3_time_'+str(time[t]))
     
     return bqm, x
 
@@ -93,7 +94,7 @@ def process_sample(sample, x, pumps, time, power, flow, costs, demand, v_init, v
         sample (SampleSet): Sample to process
         x (list of strings): List of variable names in BQM
         pumps (list of ints): List of pumps available
-        time (list of ints): List of time slots
+        time (list): List of time slots
         power (list of floats): power[i] = power required for pump i
         flow (list of floats): flow[i] = flow output for pump i
         costs (list of floats): costs[i] = unit power cost at time i
@@ -106,6 +107,8 @@ def process_sample(sample, x, pumps, time, power, flow, costs, demand, v_init, v
             pump_flow_schedule[i] = amount of input flow from pumps at time i
         reservoir (list of floats): reservoir[i] = reservoir level at time i        
     """
+
+    print("\nProcessing sampleset returned...")
     
     # Initialize variables
     total_flow = 0
@@ -114,15 +117,13 @@ def process_sample(sample, x, pumps, time, power, flow, costs, demand, v_init, v
 
     # Print out time slots header
     if verbose:
-        timeslots = "\n"
-        for t in time:
-            timeslots += "\t" + str(t+1)
+        timeslots = "\n" + "\t".join(str(t + 1) for t in time)
         print(timeslots)
 
     # Generate printout for each pump's usage
     for p in range(num_pumps):
         printout = str(pumps[p])
-        for t in time:
+        for t in range(len(time)):
             printout += "\t" + str(sample[x[p][t]])
             total_flow += sample[x[p][t]] * flow[p]
             total_cost += sample[x[p][t]] * costs[t] * power[p] / 1000
@@ -133,7 +134,7 @@ def process_sample(sample, x, pumps, time, power, flow, costs, demand, v_init, v
     printout = "Level:\t"
     reservoir = [v_init]
     pump_flow_schedule = []
-    for t in time:
+    for t in range(len(time)):
         hourly_flow = reservoir[-1]
         for p in range(num_pumps):
             hourly_flow += sample[x[p][t]] * flow[p]
@@ -167,6 +168,8 @@ def visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flo
     Returns:
        None.                
     """
+
+    print("\nBuilding visualization...")
 
     # Initialize plot
     fig, ax = plt.subplots()
@@ -245,7 +248,7 @@ if __name__ == '__main__':
     # Set up scenario
     num_pumps = 7
     pumps = ['P'+str(p+1) for p in range(num_pumps)]
-    time = list(range(24))
+    time = list(range(1, 25))
     power = [15, 37, 33, 33, 22, 33, 22]
     costs = [169]*7 + [283]*6 + [169]*3 + [336]*5 + [169]*3
     flow = [75, 133, 157, 176, 59, 69, 120]
@@ -261,6 +264,7 @@ if __name__ == '__main__':
     bqm, x = build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max, c3_gamma)
 
     # Run on hybrid sampler
+    print("\nRunning hybrid solver...")
     sampler = LeapHybridSampler()
     sampleset = sampler.sample(bqm)
     sample = sampleset.first.sample
