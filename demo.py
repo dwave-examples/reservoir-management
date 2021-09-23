@@ -46,7 +46,7 @@ def build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max,
     print("\nBuilding binary quadratic model...")
 
     # Build a variable for each pump
-    x = [['P' + str(p) + '_' + str(time[t]) for t in time] for p in range(num_pumps)]
+    x = [['P' + str(p) + '_' + str(t) for t in time] for p in range(num_pumps)]
 
     # Initialize BQM
     bqm = BinaryQuadraticModel('BINARY')
