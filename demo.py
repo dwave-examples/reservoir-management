@@ -151,7 +151,7 @@ def process_sample(sample, x, pumps, time, power, flow, costs, demand, v_init, v
     return pump_flow_schedule, reservoir
 
 def visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flow_schedule, reservoir):
-    """Visualize solution as mp4 animation saved to file reservoir.mp4.
+    """Visualize solution as html animation saved to file reservoir.html.
     Args:
         sample (SampleSet): Sample to process
         x (list of strings): List of variable names in BQM
