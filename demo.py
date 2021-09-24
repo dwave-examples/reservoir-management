@@ -117,7 +117,7 @@ def process_sample(sample, x, pumps, time, power, flow, costs, demand, v_init, v
 
     # Print out time slots header
     if verbose:
-        timeslots = "\n" + "\t".join(str(t + 1) for t in time)
+        timeslots = "\n\t" + "\t".join(str(t) for t in time)
         print(timeslots)
 
     # Generate printout for each pump's usage
