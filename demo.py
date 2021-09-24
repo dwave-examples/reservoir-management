@@ -77,9 +77,9 @@ def build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max,
     # Constraint 3: Water doesn't go below v_min or above v_max
     ## Note: Multiplication by 100 is to clear fractional coefficients in inequality
     for t in range(len(time)):
-        c4 = [(x[p][k], int(flow[p]*100)) for p in range(num_pumps) for k in range(t+1)]
+        c3 = [(x[p][k], int(flow[p]*100)) for p in range(num_pumps) for k in range(t+1)]
         const = v_init - sum(demand[0:t+1])
-        bqm.add_linear_inequality_constraint(c4,
+        bqm.add_linear_inequality_constraint(c3,
                 constant = int(const*100),
                 lb = v_min * 100,
                 ub = v_max * 100,
