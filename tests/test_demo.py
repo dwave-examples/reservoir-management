@@ -51,9 +51,9 @@ class TestDemo(unittest.TestCase):
 
         bqm, _ = demo.build_bqm(num_pumps, time, power, costs, flow, demand, v_init, v_min, v_max, c3_gamma)
         bin_vars = num_pumps*len(time)
-        c1_vars = num_pumps*math.ceil(math.log(num_pumps - 1, 2))
-        c2_vars = len(time)*math.ceil(math.log(num_pumps-1, 2))
-        c3_vars = len(time)*math.ceil(math.log(v_max*100 - v_min*100, 2))
+        c1_vars = num_pumps*math.ceil(math.log(len(time), 2))
+        c2_vars = len(time)*math.ceil(math.log(num_pumps, 2))
+        c3_vars = len(time)*math.ceil(math.log(v_max*100 - v_min*100 + 1, 2))
 
         self.assertEqual(bqm.num_variables, bin_vars+c1_vars+c2_vars+c3_vars)
     
