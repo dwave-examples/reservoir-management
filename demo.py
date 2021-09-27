@@ -150,7 +150,7 @@ def process_sample(sample, x, pumps, time, power, flow, costs, demand, v_init, v
 
     return pump_flow_schedule, reservoir
 
-def visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flow_schedule, reservoir):
+def visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flow_schedule, reservoir, time):
     """Visualize solution as mp4 animation saved to file reservoir.mp4.
     Args:
         sample (SampleSet): Sample to process
@@ -222,7 +222,7 @@ def visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flo
         water_line.set_data(x_ax_vals, y)
 
         # Adjust time/cost/pumps used text on plot for the given hour
-        time_label.set_text('Time: '+str(t+1))
+        time_label.set_text('Time: '+str(time[t]))
         cost = 0
         for p in range(num_pumps):
             if sample[x[p][t]] == 1:
@@ -273,4 +273,4 @@ if __name__ == '__main__':
     pump_flow_schedule, reservoir = process_sample(sample, x, pumps, time, power, flow, costs, demand, v_init)
 
     # Visualize result
-    visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flow_schedule, reservoir)
+    visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flow_schedule, reservoir, time)
