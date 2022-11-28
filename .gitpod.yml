@@ -1,0 +1,10 @@
+tasks:
+  - name: Run demo
+    init: pip install -r requirements.txt
+    command: |
+      python demo.py
+      python -m http.server 8000
+
+ports:
+  - port: 8000
+    onOpen: open-preview
