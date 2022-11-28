@@ -239,9 +239,10 @@ def visualize(sample, x, v_min, v_max, v_init, num_pumps, costs, power, pump_flo
     smoothing_factor = 4  # Granularity factor for animation
     anim = animation.FuncAnimation(fig, animate, repeat=False, frames=int(24*(60/smoothing_factor)), interval=2, blit=True)
     mywriter = animation.HTMLWriter(fps=30)
-    anim.save('reservoir.html',writer=mywriter)
+    output = 'index.html'
+    anim.save(output, writer=mywriter)
+    print(f"\nAnimation saved as {output!r}.")
 
-    print("\nAnimation saved as reservoir.html.")
 
 if __name__ == '__main__':
 
